@@ -1,6 +1,7 @@
 from django.db import transaction
 import pandas as pd
 from core.models import Client, Transaction
+from core.models.transaction_statistics_view import TransactionStatistics
 from .processors import ClientProcessor, DataProcessor, TransactionProcessor
 
 # TODO: decide if we want to handle each row individually or in bulk, to not roll back all rows on failure
@@ -17,6 +18,7 @@ def process_file(file_path: str, model, processor: DataProcessor) -> dict:
                     model.objects.update_or_create(**processed_data)
                     processed_count += 1
 
+        TransactionStatistics.refresh()
         return {
             'success': True,
             'message': f'Successfully processed {processed_count} records',
