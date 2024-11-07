@@ -1,20 +1,21 @@
 from rest_framework.response import Response
 from rest_framework import status
 from core.models import Transaction
+from core.throttle import CustomRateThrottle
 from .serializers import TansactionQuerySerializer, TransactionListSerializer, UserSerializer
 from core.models.client import Client
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes,throttle_classes
 from rest_framework.authtoken.models import Token
 from rest_framework.authentication import TokenAuthentication
 from django.contrib.auth import authenticate
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 import uuid
 
+@throttle_classes([CustomRateThrottle])
 @swagger_auto_schema(
     method='get',
     manual_parameters=[
@@ -114,6 +115,7 @@ def login_user(request):
     responses={201: 'User created', 400: 'Invalid input'},
 )
 @api_view(['POST'])
+@throttle_classes([CustomRateThrottle])
 def register_user(request):
     serializer = UserSerializer(data=request.data, context={'is_registration': True})
 
