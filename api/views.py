@@ -8,9 +8,28 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.authtoken.models import Token
 from rest_framework.authentication import TokenAuthentication
 from django.contrib.auth import authenticate
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 import uuid
 
+@swagger_auto_schema(
+    method='get',
+    manual_parameters=[
+        openapi.Parameter('Authorization', openapi.IN_HEADER, description="Token for authentication. Format: 'Token <your_token_here>'", type=openapi.TYPE_STRING),
+        openapi.Parameter('client_id', openapi.IN_PATH, description="Client ID", type=openapi.TYPE_STRING),
+        openapi.Parameter('start_date', openapi.IN_QUERY, description="Start date for transactions", type=openapi.TYPE_STRING, format=openapi.FORMAT_DATE),
+        openapi.Parameter('end_date', openapi.IN_QUERY, description="End date for transactions", type=openapi.TYPE_STRING, format=openapi.FORMAT_DATE),
+    ],
+    responses={
+        200: openapi.Response('Successful Response', TransactionListSerializer(many=True)),
+        400: 'Invalid client_id or query parameters',
+        404: 'User does not exist',
+        500: 'Internal Server Error'
+    }
+)
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -54,6 +73,18 @@ def client_transactions(request, client_id):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@swagger_auto_schema(
+    method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING, description='Username'),
+            'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+        },
+    ),
+    responses={200: 'Login successful', 401: 'Invalid credentials'},
+)
 @api_view(['POST'])
 def login_user(request):
     serializer = UserSerializer(data=request.data, context={'is_login': True})
@@ -71,6 +102,17 @@ def login_user(request):
         return Response({"error": "Invalid username or password."}, status=status.HTTP_401_UNAUTHORIZED)
 
 
+@swagger_auto_schema(
+    method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'username': openapi.Schema(type=openapi.TYPE_STRING, description='Username'),
+            'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+        },
+    ),
+    responses={201: 'User created', 400: 'Invalid input'},
+)
 @api_view(['POST'])
 def register_user(request):
     serializer = UserSerializer(data=request.data, context={'is_registration': True})
