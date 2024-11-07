@@ -10,15 +10,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options['clients_file']:
-            result = process_clients_file(options['clients_file'])
-            self.stdout.write(
-                self.style.SUCCESS(result['message']) if result['success']
-                else self.style.ERROR(result['message'])
-            )
+            task = process_clients_file.delay(options['clients_file'])
+            self.stdout.write(self.style.SUCCESS(f'Processing clients file: {options["clients_file"]}. Task ID: {task.id}'))
+
 
         if options['transactions_file']:
-            result = process_transactions_file(options['transactions_file'])
-            self.stdout.write(
-                self.style.SUCCESS(result['message']) if result['success']
-                else self.style.ERROR(result['message'])
-            )
+            task = process_transactions_file.delay(options['transactions_file'])
+            self.stdout.write(self.style.SUCCESS(f'Processing transactions file: {options["transactions_file"]}. Task ID: {task.id}'))

@@ -1,3 +1,4 @@
+from celery import shared_task
 from django.db import transaction
 import pandas as pd
 from core.models import Client, Transaction
@@ -5,6 +6,7 @@ from core.models.transaction_statistics_view import TransactionStatistics
 from .processors import ClientProcessor, DataProcessor, TransactionProcessor
 
 # TODO: decide if we want to handle each row individually or in bulk, to not roll back all rows on failure
+@shared_task
 def process_file(file_path: str, model, processor: DataProcessor) -> dict:
     try:
         df = pd.read_csv(file_path) if file_path.endswith('.csv') else pd.read_excel(file_path)
@@ -31,11 +33,12 @@ def process_file(file_path: str, model, processor: DataProcessor) -> dict:
             'error': e
         }
 
-
+@shared_task
 def process_clients_file(file_path: str) -> dict:
     processor = ClientProcessor()
     return process_file(file_path, Client, processor)
 
+@shared_task
 def process_transactions_file(file_path: str) -> dict:
     processor = TransactionProcessor()
     return process_file(file_path, Transaction, processor)
