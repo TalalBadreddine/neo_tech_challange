@@ -9,7 +9,7 @@ class ClientQuerySerializer(serializers.Serializer):
     max_balance = serializers.DecimalField(max_digits=15, decimal_places=2, required=False)
     created_after = serializers.DateTimeField(required=False)
     created_before = serializers.DateTimeField(required=False)
-
+    limit = serializers.IntegerField(max_value=999, required=False)
 
 class ClientSerializer(serializers.ModelSerializer):
     class Meta:

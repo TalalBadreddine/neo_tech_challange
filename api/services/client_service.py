@@ -21,24 +21,25 @@ class ClientService:
             return Response(APIErrorMessages.INVALID_QUERY_PARAMS, status=status.HTTP_400_BAD_REQUEST)
 
         limit = validated_params.pop('limit', 10)
+        name = validated_params.pop('name', None)
+        email = validated_params.pop('email', None)
         min_balance = validated_params.pop('min_balance', None)
         max_balance = validated_params.pop('max_balance', None)
         created_after = validated_params.pop('created_after', None)
         created_before = validated_params.pop('created_before', None)
 
         try:
-            filter_conditions = {}
+            filter_conditions = {
+                'name__icontains': name,
+                'email__icontains': email,
+                'account_balance__gte': min_balance,
+                'account_balance__lte': max_balance,
+                'created_at__gte': created_after,
+                'created_at__lte': created_before,
+                **validated_params
+            }
 
-            filter_conditions.update(validated_params)
-
-            if min_balance is not None:
-                filter_conditions['account_balance__gte'] = min_balance
-            if max_balance is not None:
-                filter_conditions['account_balance__lte'] = max_balance
-            if created_after is not None:
-                filter_conditions['created_at__gte'] = created_after
-            if created_before is not None:
-                filter_conditions['created_at__lte'] = created_before
+            filter_conditions = {k: v for k, v in filter_conditions.items() if v is not None}
 
             clients = Client.objects.filter(**filter_conditions)[:limit]
 
