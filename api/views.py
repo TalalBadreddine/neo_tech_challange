@@ -2,6 +2,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from core.models import Transaction
 from core.throttle import CustomRateThrottle
+from api.errors import APIErrorMessages
 from .serializers import TansactionQuerySerializer, TransactionListSerializer, UserSerializer
 from core.models.client import Client
 from rest_framework.permissions import IsAuthenticated
@@ -26,8 +27,8 @@ import uuid
     ],
     responses={
         200: openapi.Response('Successful Response', TransactionListSerializer(many=True)),
-        400: 'Invalid client_id or query parameters',
-        404: 'User does not exist',
+        400: APIErrorMessages.INVALID_CLIENT_ID,
+        404: APIErrorMessages.USER_NOT_FOUND,
         500: 'Internal Server Error'
     }
 )
@@ -38,12 +39,12 @@ def client_transactions(request, client_id):
     try:
         uuid.UUID(client_id)
     except ValueError:
-        return Response({'error': 'Invalid client_id'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(APIErrorMessages.INVALID_CLIENT_ID, status=status.HTTP_400_BAD_REQUEST)
 
     user = Client.objects.filter(client_id=client_id).first()
 
     if not user:
-        return Response({'error': 'User does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(APIErrorMessages.USER_NOT_FOUND, status=status.HTTP_404_NOT_FOUND)
 
 
     query_serializer = TansactionQuerySerializer(data=request.query_params)
@@ -100,7 +101,7 @@ def login_user(request):
         serializer = UserSerializer(user)
         return Response({'token': token.key, 'user': serializer.data}, status=status.HTTP_200_OK)
     else:
-        return Response({"error": "Invalid username or password."}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response(APIErrorMessages.INVALID_CREDENTIALS, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @swagger_auto_schema(

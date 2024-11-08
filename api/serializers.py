@@ -2,6 +2,7 @@ from rest_framework import serializers
 from core.models.transaction import Transaction
 from datetime import datetime
 from django.contrib.auth.models import User
+from api.errors import APIErrorMessages
 
 class TansactionQuerySerializer(serializers.Serializer):
     start_date = serializers.DateField(required=False)
@@ -15,18 +16,18 @@ class TansactionQuerySerializer(serializers.Serializer):
                 try:
                     datetime.strptime(str(start_date), '%Y-%m-%d')
                 except ValueError:
-                    raise serializers.ValidationError({"start_date": "Invalid date format. Please use YYYY-MM-DD."})
+                    raise serializers.ValidationError(APIErrorMessages.INVALID_DATE_FORMAT)
 
             if end_date:
                 try:
                     datetime.strptime(str(end_date), '%Y-%m-%d')
                 except ValueError:
-                    raise serializers.ValidationError({"end_date": "Invalid date format. Please use YYYY-MM-DD."})
+                    raise serializers.ValidationError(APIErrorMessages.INVALID_DATE_FORMAT)
 
 
             if start_date and end_date:
                 if start_date > end_date:
-                    raise serializers.ValidationError("start_date must be before end_date.")
+                    raise serializers.ValidationError(APIErrorMessages.START_DATE_BEFORE_END_DATE)
 
             return attrs
 
@@ -66,22 +67,22 @@ class UserSerializer(serializers.ModelSerializer):
     def validate_registration(self, attrs):
         username = attrs.get('username')
         if User.objects.filter(username=username).exists():
-            raise serializers.ValidationError("A user with this username already exists.")
+            raise serializers.ValidationError(APIErrorMessages.USERNAME_EXISTS)
 
         password = attrs.get('password')
         if len(password) < 8:
-            raise serializers.ValidationError("Password must be at least 8 characters long.")
+            raise serializers.ValidationError(APIErrorMessages.PASSWORD_TOO_SHORT)
 
         return attrs
 
     def validate_login(self, attrs):
         username = attrs.get('username')
         if not User.objects.filter(username=username).exists():
-            raise serializers.ValidationError("Invalid username or password.")
+            raise serializers.ValidationError(APIErrorMessages.INVALID_CREDENTIALS)
 
         password = attrs.get('password')
         user = User.objects.filter(username=username).first()
         if user and not user.check_password(password):
-            raise serializers.ValidationError("Invalid username or password.")
+            raise serializers.ValidationError(APIErrorMessages.INVALID_CREDENTIALS)
 
         return attrs
