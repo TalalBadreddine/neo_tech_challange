@@ -72,11 +72,15 @@ docker-compose exec web python manage.py run_etl \
    - View all ETL jobs and their status
 
 2. Via API:
-bash
+```bash
 List all jobs
-curl http://localhost:8000/api/etl/jobs/
+```bash
+curl http://localhost:8000/admin/core/etljob/
+```
+```bash
 Check specific job
-curl http://localhost:8000/api/etl/jobs/<job_id>/
+curl http://localhost:8000/admin/core/etljob/<job_id>/
+```
 
 
 ## API Authentication 🔑
