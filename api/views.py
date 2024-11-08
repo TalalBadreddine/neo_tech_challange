@@ -51,7 +51,7 @@ def register_user(request):
         openapi.Parameter(
             'Authorization',
             openapi.IN_HEADER,
-            description="Token for authentication. Format: 'Token <your_token_here>'",
+            description="Token for authorization. Format: 'Token <your_token_here>'",
             type=openapi.TYPE_STRING
         ),
         openapi.Parameter(

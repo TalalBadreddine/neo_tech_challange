@@ -70,7 +70,7 @@ def process_file(file_path: str, model, processor: DataProcessor, single_row_pro
         return {
             'success': False,
             'message': str(e),
-            'error': e
+            'error': str(e)
         }
 
 @shared_task
