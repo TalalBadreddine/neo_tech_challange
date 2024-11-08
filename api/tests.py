@@ -53,7 +53,7 @@ class APITests(APITestCase):
         url = reverse('client-transactions', args=['invalid-client-id'])
         response = self.client.get(url, HTTP_AUTHORIZATION=f'Token {self.token.key}')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data, APIErrorMessages.INVALID_CLIENT_ID)
+        self.assertEqual(response.data['error'], APIErrorMessages.INVALID_CLIENT_ID)
 
     def test_client_transactions_no_transactions(self):
         new_client = Client.objects.create(
@@ -79,14 +79,14 @@ class APITests(APITestCase):
         url = reverse('login')
         response = self.client.post(url, {'username': 'testuser', 'password': 'wrongpassword'}, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(APIErrorMessages.INVALID_CREDENTIALS, response.data)
+        self.assertEqual(APIErrorMessages.INVALID_CREDENTIALS, response.data['error'])
 
     def test_register_user_invalid_input(self):
         url = reverse('register')
         response = self.client.post(url, {'username': '', 'password': ''}, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('username', response.data)
-        self.assertIn('password', response.data)
+        self.assertIn('username', response.data['error'])
+        self.assertIn('password', response.data['error'])
 
     def test_client_transactions_invalid_token(self):
         url = reverse('client-transactions', args=[self.client_id])
