@@ -7,6 +7,10 @@ from .response import (
     TokenResponseSerializer,
     ErrorResponseSerializer
 )
+from .client import (
+    ClientQuerySerializer,
+    ClientSerializer
+)
 
 __all__ = [
     'UserSerializer',
@@ -14,4 +18,6 @@ __all__ = [
     'TransactionQuerySerializer',
     'TokenResponseSerializer',
     'ErrorResponseSerializer',
+    'ClientQuerySerializer',
+    'ClientSerializer',
 ]

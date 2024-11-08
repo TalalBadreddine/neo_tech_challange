@@ -8,3 +8,4 @@ class APIErrorMessages:
     PASSWORD_TOO_SHORT = 'Password must be at least 8 characters long.'
     INVALID_DATE_FORMAT = 'Invalid date format. Please use YYYY-MM-DD.'
     START_DATE_BEFORE_END_DATE = 'start_date must be before end_date.'
+    INVALID_QUERY_PARAMS = 'Invalid query parameters'

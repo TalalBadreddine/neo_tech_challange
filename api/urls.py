@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import client_transactions, login_user, register_user
+from .views import client_transactions, get_clients, login_user, register_user
 
 urlpatterns = [
     path('auth/', include([
@@ -7,5 +7,8 @@ urlpatterns = [
         path('register/', register_user, name='register'),
     ])),
 
-    path('clients/<str:client_id>/transactions/', client_transactions, name='client-transactions'),
+    path('clients/', include([
+        path('', get_clients, name='clients'),
+        path('<str:client_id>/transactions/', client_transactions, name='client-transactions'),
+    ])),
 ]
