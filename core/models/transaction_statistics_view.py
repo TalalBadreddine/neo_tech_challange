@@ -2,7 +2,7 @@ from pickle import TRUE
 from django.db import models
 
 class TransactionStatistics(models.Model):
-    client_id = models.IntegerField(primary_key=True)
+    client_id = models.CharField(max_length=50, primary_key=True)
     total_transactions = models.IntegerField()
     total_spent = models.DecimalField(max_digits=25, decimal_places=2)
     total_gained = models.DecimalField(max_digits=25, decimal_places=2)
