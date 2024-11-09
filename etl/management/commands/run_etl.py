@@ -11,6 +11,7 @@ class Command(BaseCommand):
         parser.add_argument('--clients-file', type=str, help='Path to clients CSV/Excel file')
         parser.add_argument('--transactions-file', type=str, help='Path to transactions CSV/Excel file')
         parser.add_argument('--single-row-processing', action='store_true', help='Inserts row individually into db')
+        parser.add_argument('--verbose', action='store_true', help='Prints verbose output')
 
     def start_celery_worker(self):
         """Start Celery worker process"""
@@ -78,6 +79,24 @@ class Command(BaseCommand):
                             self.stdout.write(self.style.SUCCESS(
                                 f'{task_type.title()} task completed: {result["message"]}'
                             ))
+
+                            if options['verbose']:
+                                self.stdout.write(f"RESULTS: {result}")
+                                if result.get('errors'):
+                                    self.stdout.write(self.style.WARNING('Errors encountered:'))
+
+                            if result['errors'].get('validation_errors') and options['verbose']:
+                                self.stdout.write(self.style.WARNING('Validation Errors:'))
+                                for error in result['errors']['validation_errors']:
+                                    self.stdout.write(f"Row: {error['row']}")
+                                    self.stdout.write(f"Error: {error['error']}")
+                                    self.stdout.write("---")
+
+                            if result['errors'].get('database_errors') and options['verbose']:
+                                self.stdout.write(self.style.WARNING('Database Errors:'))
+                                for error in result['errors']['database_errors']:
+                                    self.stdout.write(f"Error: {error['error']}")
+                                    self.stdout.write("---")
                         else:
                             self.stdout.write(self.style.ERROR(
                                 f'{task_type.title()} task failed: {result.get("error", "Unknown error")}'

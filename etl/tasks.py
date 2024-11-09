@@ -17,38 +17,43 @@ def process_file(file_path: str, model, processor: DataProcessor, single_row_pro
 
     try:
         df = pd.read_csv(file_path) if file_path.endswith('.csv') else pd.read_excel(file_path)
-        df = processor.clean_dataframe(df)
+        valid_records, failed_count, errors = processor.process_data(df)
 
         processed_count = 0
-        errors = []
-        valid_data = []
-
-        for _, row in df.iterrows():
-            try:
-                processed_data = processor.process_row(row)
-                if processed_data:
-                    valid_data.append(processed_data)
-                else:
-                    errors.append({'row': row.to_dict(), 'error': 'Invalid data.'})
-            except Exception as e:
-                errors.append({'row': row.to_dict(), 'error': str(e)})
+        db_errors = []
 
         if single_row_processing:
-            for data in valid_data:
+            for record in valid_records:
                 try:
-                    model.objects.update_or_create(**data)
+                    model.objects.create(**record)
                     processed_count += 1
                 except Exception as e:
-                    errors.append({'row': row.to_dict(), 'error': str(e)})
+                    db_errors.append({
+                        'row': record,
+                        'error': f'Database error: {str(e)}'
+                    })
         else:
             with transaction.atomic():
-                for i in range(0, len(valid_data), chunk_size):
-                    chunk = valid_data[i:i + chunk_size]
-                    model.objects.bulk_create([model(**data) for data in chunk], ignore_conflicts=True)
-                    processed_count += len(chunk)
+                for i in range(0, len(valid_records), chunk_size):
+                    chunk = valid_records[i:i + chunk_size]
+                    try:
+                        instances = [model(**record) for record in chunk]
+                        model.objects.bulk_create(instances, ignore_conflicts=True)
+                        processed_count += len(chunk)
+                    except Exception as e:
+                        db_errors.append({
+                            'chunk_start': i,
+                            'chunk_size': len(chunk),
+                            'error': f'Bulk insert error: {str(e)}'
+                        })
 
         if model == Transaction:
             TransactionStatistics.refresh()
+
+        all_errors = {
+            'validation_errors': errors,
+            'database_errors': db_errors
+        }
 
         job.status = 'completed'
         job.completed_at = timezone.now()
@@ -57,8 +62,11 @@ def process_file(file_path: str, model, processor: DataProcessor, single_row_pro
 
         return {
             'success': True,
-            'message': f'Successfully processed {processed_count} records',
-            'processed_count': processed_count
+            'message': f'Successfully processed {processed_count} records. Failed: {failed_count}',
+            'processed_count': processed_count,
+            'failed_count': failed_count,
+            'errors': all_errors
+
         }
     except Exception as e:
 
@@ -74,11 +82,11 @@ def process_file(file_path: str, model, processor: DataProcessor, single_row_pro
         }
 
 @shared_task
-def process_clients_file(file_path: str, single_row_processing=False) -> dict:
+def process_clients_file(file_path: str, single_row_processing=False, chunk_size=1000) -> dict:
     processor = ClientProcessor()
-    return process_file(file_path, Client, processor, single_row_processing)
+    return process_file(file_path, Client, processor, single_row_processing, chunk_size)
 
 @shared_task
-def process_transactions_file(file_path: str, single_row_processing=False) -> dict:
+def process_transactions_file(file_path: str, single_row_processing=False, chunk_size=1000) -> dict:
     processor = TransactionProcessor()
-    return process_file(file_path, Transaction, processor, single_row_processing)
+    return process_file(file_path, Transaction, processor, single_row_processing, chunk_size)
