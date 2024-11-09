@@ -1,12 +1,11 @@
 from django.test import TestCase
-from django.utils import timezone
 import uuid
 import pandas as pd
 from decimal import Decimal
-import pytz
 from unittest.mock import patch
 from core.models import Client, Transaction
 from core.models.etl_job import ETLJob
+from core.models.transaction_statistics_view import TransactionStatistics
 from etl.tasks import process_clients_file, process_transactions_file
 import tempfile
 import os
@@ -303,3 +302,31 @@ class ETLProcessTest(TestCase):
             result = process_clients_file(file_path, chunk_size=5000)
             self.assertTrue(result['success'])
             self.assertEqual(result['processed_count'], 100000)
+
+    def test_end_to_end_workflow(self):
+        """Test complete workflow from client creation to transaction processing"""
+
+        client_result = process_clients_file(self.clients_file)
+        self.assertTrue(client_result['success'])
+
+        tx_result = process_transactions_file(self.transactions_file)
+        self.assertTrue(tx_result['success'])
+
+        client = Client.objects.get(client_id=self.client_1_id)
+        transactions = Transaction.objects.filter(client_id=self.client_1_id)
+        stats = TransactionStatistics.objects.get(client_id=self.client_1_id)
+
+        self.assertEqual(len(transactions), 2)
+        self.assertEqual(stats.total_spent, Decimal('500.00'))
+        self.assertEqual(stats.total_gained, Decimal('250.25'))
+
+    def test_performance_benchmarks(self):
+        """Test performance meets requirements"""
+        import time
+
+        start_time = time.time()
+        result = process_clients_file(self.clients_file)
+        processing_time = time.time() - start_time
+
+        self.assertTrue(processing_time < 5.0)
+        self.assertTrue(result['processed_count'] / processing_time > 100)
