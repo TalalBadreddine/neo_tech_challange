@@ -23,6 +23,9 @@ services:
       - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-admin}
       - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-adminpass123}
       - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
+      - DJANGO_SETTINGS_MODULE=neo_challenge.settings
+    networks:
+      - app-network
 
   db:
     image: postgres:${POSTGRES_VERSION:-14}
@@ -40,6 +43,8 @@ services:
       timeout: ${HEALTHCHECK_TIMEOUT:-5s}
       retries: ${HEALTHCHECK_RETRIES:-5}
       start_period: ${HEALTHCHECK_START_PERIOD:-10s}
+    networks:
+      - app-network
 
   redis:
     image: redis:${REDIS_VERSION:-7}
@@ -51,13 +56,21 @@ services:
       timeout: ${HEALTHCHECK_TIMEOUT:-5s}
       retries: ${HEALTHCHECK_RETRIES:-5}
       start_period: ${HEALTHCHECK_START_PERIOD:-10s}
+    networks:
+      - app-network
 
   celery:
     build: .
+    container_name: neo_challenge_celery  # Add this line to give it a fixed name
     command: celery -A ${PROJECT_NAME:-neo_challenge} worker -l ${CELERY_LOG_LEVEL:-info}
     volumes:
       - .:/app
       - ${DATA_PATH:-./data}:/app/data
+      - prometheus_multiproc:/tmp/prometheus_multiproc
+    ports:
+      - "8001:8001"
+    environment:
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
     depends_on:
       db:
         condition: service_healthy
@@ -65,7 +78,15 @@ services:
         condition: service_healthy
     env_file:
       - ${ENV_FILE:-.env.example}
+    networks:
+      - app-network
 
 volumes:
   postgres_data:
     name: ${POSTGRES_VOLUME_NAME:-neo_challenge_postgres_data}
+  prometheus_multiproc:
+
+networks:
+  app-network:
+    name: neo_challenge_network
+    driver: bridge
