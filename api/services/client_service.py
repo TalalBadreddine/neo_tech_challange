@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from core.models.client import Client
 from api.errors import APIErrorMessages
+from core.logging import logger
 
 class ClientService:
     @staticmethod
@@ -13,6 +14,12 @@ class ClientService:
         Returns:
         - List of clients
         """
+        logger.info("Client query initiated", extra={
+            'component': 'client_service',
+            'action': 'query_start',
+            'query_params': query_params
+        })
+
         try:
             serializer = ClientQuerySerializer(data=query_params)
             serializer.is_valid(raise_exception=True)
@@ -44,6 +51,19 @@ class ClientService:
             clients = Client.objects.filter(**filter_conditions)[:limit]
 
             serializer = ClientSerializer(clients, many=True)
+
+            logger.info("Results serialized", extra={
+                'component': 'client_service',
+                'action': 'serialization_complete',
+                'results_count': len(clients)
+            })
+
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
+            logger.error("Error processing client query", extra={
+                'component': 'client_service',
+                'action': 'query_failed',
+                'filters': filter_conditions if 'filter_conditions' in locals() else None,
+                'error': str(e)
+            })
             return Response(APIErrorMessages.INTERNAL_SERVER_ERROR, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

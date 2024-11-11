@@ -24,6 +24,10 @@ CELERY_RESULT_BACKEND = os.getenv('CELERY_BROKER_URL')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+]
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/

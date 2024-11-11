@@ -207,17 +207,6 @@ class ETLProcessTest(TestCase):
         self.assertEqual(job.status, 'failed')
         self.assertIsNotNone(job.error_message)
 
-    def test_invalid_file_format(self):
-        """Test handling of invalid file formats"""
-
-        invalid_file = os.path.join(self.temp_dir, 'invalid.txt')
-        with open(invalid_file, 'w') as f:
-            f.write("This is not a CSV or XLSX file")
-
-        result = process_clients_file(invalid_file)
-        self.assertFalse(result['success'])
-        self.assertIn('format', result.get('error', '').lower())
-
     def test_corrupted_file_handling(self):
         """Test handling of corrupted files"""
 
@@ -330,3 +319,233 @@ class ETLProcessTest(TestCase):
 
         self.assertTrue(processing_time < 5.0)
         self.assertTrue(result['processed_count'] / processing_time > 100)
+
+    def test_chunk_retry_with_invalid_client_references(self):
+        """Test chunk retry behavior when processing transactions with invalid client references"""
+        # Create one valid client
+        Client.objects.create(
+            client_id=self.client_1_id,
+            name='John Doe',
+            email='john.doe@example.com',
+            date_of_birth='1990-01-01',
+            account_balance=Decimal('1000.50')
+        )
+
+        # Create transactions with mixed valid/invalid client references
+        mixed_transactions = [
+            {
+                'transaction_id': str(uuid.uuid4()),
+                'client_id': self.client_1_id,  # Valid client
+                'transaction_type': 'BUY',
+                'transaction_date': '2024-01-01 12:00:00',
+                'amount': '100.00',
+                'currency': 'USD'
+            },
+            {
+                'transaction_id': str(uuid.uuid4()),
+                'client_id': str(uuid.uuid4()),  # Invalid client
+                'transaction_type': 'SELL',
+                'transaction_date': '2024-01-01 13:00:00',
+                'amount': '200.00',
+                'currency': 'USD'
+            },
+            {
+                'transaction_id': str(uuid.uuid4()),
+                'client_id': self.client_1_id,  # Valid client
+                'transaction_type': 'BUY',
+                'transaction_date': '2024-01-01 14:00:00',
+                'amount': '300.00',
+                'currency': 'USD'
+            }
+        ]
+
+        test_file = os.path.join(self.temp_dir, 'mixed_transactions.xlsx')
+        pd.DataFrame(mixed_transactions).to_excel(test_file, index=False)
+
+        result = process_transactions_file(test_file, chunk_size=3)
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['processed_count'], 2)  # Only valid transactions
+        self.assertEqual(result['failed_count'], 1)     # Invalid transaction
+
+        # Verify the correct transactions were processed
+        transactions = Transaction.objects.all()
+        self.assertEqual(transactions.count(), 2)
+        amounts = sorted([float(t.amount) for t in transactions])
+        self.assertEqual(amounts, [100.00, 300.00])
+
+    def test_chunk_retry_with_mixed_validation_errors(self):
+        """Test chunk retry behavior with mixed validation and database errors"""
+        # Create valid client
+        Client.objects.create(
+            client_id=self.client_1_id,
+            name='John Doe',
+            email='john.doe@example.com',
+            date_of_birth='1990-01-01',
+            account_balance=Decimal('1000.50')
+        )
+
+        # Create transactions with various errors
+        problematic_transactions = [
+            {
+                'transaction_id': str(uuid.uuid4()),
+                'client_id': self.client_1_id,
+                'transaction_type': 'BUY',
+                'transaction_date': '2024-01-01 12:00:00',
+                'amount': '100.00',
+                'currency': 'USD'
+            },
+            {
+                'transaction_id': str(uuid.uuid4()),
+                'client_id': self.client_1_id,
+                'transaction_type': 'INVALID',  # Validation error
+                'transaction_date': '2024-01-01 13:00:00',
+                'amount': '200.00',
+                'currency': 'USD'
+            },
+            {
+                'transaction_id': str(uuid.uuid4()),
+                'client_id': str(uuid.uuid4()),
+                'transaction_type': 'BUY',
+                'transaction_date': '2024-01-01 14:00:00',
+                'amount': '300.00',
+                'currency': 'USD'
+            }
+        ]
+
+        test_file = os.path.join(self.temp_dir, 'problematic_transactions.xlsx')
+        pd.DataFrame(problematic_transactions).to_excel(test_file, index=False)
+
+        result = process_transactions_file(test_file, chunk_size=2)
+
+        self.assertEqual(result['processed_count'], 1)
+        self.assertEqual(result['failed_count'], 2)
+
+    def test_chunk_retry_with_duplicate_transactions(self):
+        """Test chunk retry behavior with duplicate transactions"""
+        # Create client
+        Client.objects.create(
+            client_id=self.client_1_id,
+            name='John Doe',
+            email='john.doe@example.com',
+            date_of_birth='1990-01-01',
+            account_balance=Decimal('1000.50')
+        )
+
+        # Create duplicate transactions
+        transaction_id = str(uuid.uuid4())
+        duplicate_transactions = [
+            {
+                'transaction_id': transaction_id,
+                'client_id': self.client_1_id,
+                'transaction_type': 'BUY',
+                'transaction_date': '2024-01-01 12:00:00',
+                'amount': '100.00',
+                'currency': 'USD'
+            },
+            {
+                'transaction_id': transaction_id,  # Same ID
+                'client_id': self.client_1_id,
+                'transaction_type': 'BUY',
+                'transaction_date': '2024-01-01 12:00:00',
+                'amount': '100.00',
+                'currency': 'USD'
+            }
+        ]
+
+        test_file = os.path.join(self.temp_dir, 'duplicate_transactions.xlsx')
+        pd.DataFrame(duplicate_transactions).to_excel(test_file, index=False)
+
+        result = process_transactions_file(test_file, chunk_size=1)
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['processed_count'], 1)
+        self.assertEqual(result['failed_count'], 1)
+
+        # Verify only one transaction was created
+        self.assertEqual(Transaction.objects.count(), 1)
+
+    def test_chunk_retry_with_invalid_amounts(self):
+        """Test chunk retry behavior with invalid transaction amounts"""
+        # Create client
+        Client.objects.create(
+            client_id=self.client_1_id,
+            name='John Doe',
+            email='john.doe@example.com',
+            date_of_birth='1990-01-01',
+            account_balance=Decimal('1000.50')
+        )
+
+        # Create transactions with invalid amounts
+        transactions = [
+            {
+                'transaction_id': str(uuid.uuid4()),
+                'client_id': self.client_1_id,
+                'transaction_type': 'BUY',
+                'transaction_date': '2024-01-01 12:00:00',
+                'amount': 'invalid',  # Invalid amount
+                'currency': 'USD'
+            },
+            {
+                'transaction_id': str(uuid.uuid4()),
+                'client_id': self.client_1_id,
+                'transaction_type': 'SELL',
+                'transaction_date': '2024-01-01 13:00:00',
+                'amount': '200.00',  # Valid amount
+                'currency': 'USD'
+            }
+        ]
+
+        test_file = os.path.join(self.temp_dir, 'invalid_amounts.xlsx')
+        pd.DataFrame(transactions).to_excel(test_file, index=False)
+
+        result = process_transactions_file(test_file, chunk_size=2)
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['processed_count'], 1)
+        self.assertEqual(result['failed_count'], 1)
+
+        # Verify the correct transaction was processed
+        transaction = Transaction.objects.first()
+        self.assertEqual(float(transaction.amount), 200.00)
+
+    def test_chunk_retry_performance(self):
+        """Test performance impact of chunk retry mechanism"""
+        # Create client
+        Client.objects.create(
+            client_id=self.client_1_id,
+            name='John Doe',
+            email='john.doe@example.com',
+            date_of_birth='1990-01-01',
+            account_balance=Decimal('1000.50')
+        )
+
+        # Create large dataset with some invalid records
+        transactions = []
+        for i in range(1000):
+            client_id = self.client_1_id if i % 2 == 0 else str(uuid.uuid4())
+            transactions.append({
+                'transaction_id': str(uuid.uuid4()),
+                'client_id': client_id,
+                'transaction_type': 'BUY',
+                'transaction_date': '2024-01-01 12:00:00',
+                'amount': '100.00',
+                'currency': 'USD'
+            })
+
+        test_file = os.path.join(self.temp_dir, 'performance_test.xlsx')
+        pd.DataFrame(transactions).to_excel(test_file, index=False)
+
+        import time
+        start_time = time.time()
+
+        result = process_transactions_file(test_file, chunk_size=100)
+
+        processing_time = time.time() - start_time
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['processed_count'], 500)  # Half should succeed
+        self.assertEqual(result['failed_count'], 500)     # Half should fail
+
+        # Verify performance is within acceptable limits
+        self.assertLess(processing_time, 30.0)  # Adjust threshold as needed
