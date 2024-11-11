@@ -88,6 +88,10 @@ docker-compose exec web python manage.py run_etl \
   ```bash
   coverage run manage.py test
   ```
+  or on docker (you might need to increase the machine resources)
+  ```bash
+  docker-compose exec web coverage run manage.py test
+  ```
 - **View Reports**:
   ```bash
   coverage report    # Terminal output
@@ -95,7 +99,7 @@ docker-compose exec web python manage.py run_etl \
   ```
 
   <div>
-      <img src="docs/images/test_coverage.png" width="200"/>
+      <img src="docs/images/test_coverage.png" width="500"/>
       <p>Test coverage report</p>
   </div>
 
@@ -104,18 +108,17 @@ docker-compose exec web python manage.py run_etl \
   - ETL process monitoring
   - Materialized view refresh status
   - System health metrics
-  - User activity logs
 
   <div>
-      <img src="docs/images/admin_etl.png" width="200"/>
+      <img src="docs/images/admin_etl.png" width="500"/>
       <p>ETL Job</p>
   </div>
   <div>
-      <img src="docs/images/admin_view_results.png" width="200"/>
+      <img src="docs/images/admin_view_results.png" width="500"/>
       <p>View Results</p>
   </div>
   <div>
-      <img src="docs/images/admin_view_refresh.png" width="200"/>
+      <img src="docs/images/admin_view_refresh.png" width="500"/>
       <p>Materialized View</p>
   </div>
 
@@ -123,17 +126,17 @@ docker-compose exec web python manage.py run_etl \
 - The logging is being saved in a file in the `logs/` directory, you can check it to see the details of the process
 
 <div>
-    <img src="docs/images/logs_validation.png" width="200"/>
+    <img src="docs/images/logs_validation.png" width="500"/>
     <p>Logs for etl validation warnings</p>
 </div>
 
 <div>
-    <img src="docs/images/logs_etl_info.png" width="200"/>
+    <img src="docs/images/logs_etl_info.png" width="500"/>
     <p>Logs for etl info</p>
 </div>
 
 <div>
-    <img src="docs/images/logs_error.png" width="200"/>
+    <img src="docs/images/logs_errors.png" width="500"/>
     <p>Logs for errors</p>
 </div>
 
@@ -141,7 +144,7 @@ docker-compose exec web python manage.py run_etl \
 - **Swagger UI**: `/swagger`
 - **OpenAPI Spec**: `/swagger.json`
 <div>
-    <img src="docs/images/swagger_example.png" width="200"/>
+    <img src="docs/images/swagger_example.png" width="500"/>
     <p>Swagger UI</p>
 </div>
 
@@ -167,13 +170,12 @@ PS: the etl proccess is being logged in logs file, you can check it in `logs/`
    - View all ETL jobs and their status
 
 2. Via API:
-```bash
 List all jobs
-```bash
+``` bash
 curl http://localhost:8000/admin/core/etljob/
 ```
-```bash
 Check specific job
+```bash
 curl http://localhost:8000/admin/core/etljob/<job_id>/
 ```
 
@@ -238,6 +240,11 @@ curl http://localhost:8000/admin/core/etljob/<job_id>/
 Check file permissions
 ```bash
 docker-compose exec web ls -l /app/data/
+```
+
+View ETL job logs
+```bash
+docker-compose exec web cat /app/logs/etl_(info | error | validation_warnings).log
 ```
 
 View ETL job logs
